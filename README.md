@@ -1,69 +1,50 @@
-# Sim League — Liga-Rechner
+# OP TCG Liga — Prize-Wall-Rechner
 
-Ticket-Rechner, Prize Wall und Tabelle für die Sim League. React + Vite + Tailwind,
-komplett im Browser lauffähig — noch ohne Backend.
+Interaktiver Rechner für die Liga: Ticket-Ökonomie, Prize Wall und PDF-Export.
 
 ## Lokal starten
 
 ```bash
 npm install
 npm run dev      # http://localhost:5173
-npm run build    # Produktions-Build (prüft auch die Typen)
+npm run build    # Produktions-Build nach dist/
 npm run preview  # Build lokal ansehen
 ```
 
-Node 20+ wird empfohlen.
+## Was der Rechner macht
 
-## Was die App kann
+- **Zwei Auszahlungsmodi im Vergleich** — *Top X* (nur die besten Plätze bekommen Tickets)
+  gegen *Ticket pro Win* (jeder Match-Sieg gibt ein Ticket). Beide Modelle stehen
+  nebeneinander: Tickets/Event, Preis-Anteil und Gewinn/Monat.
+- **Monats-Rechnung** aus Kapazität, Auslastung, Turnieren pro Woche, Eintritt,
+  Zahlungsgebühren und Fixkosten → Netto-Gewinn und Beute pro Kopf.
+- **Sticker-Wert vs. reale Kosten**: was Spieler sehen (Ticket-Wert) gegen das, was ein
+  Ticket uns wirklich kostet. Warnung, sobald der ausgeschüttete Sticker-Wert über dem
+  Umsatz liegt.
+- **Gewinn nach Auslastung** als Kurve mit Break-even-Linie und Marker auf dem
+  aktuellen Wert.
+- **Prize Wall** frei gestaltbar: Produkte aus dem Katalog hinzufügen, Ticket-Preise und
+  CHF-Kosten anpassen. Die Spalte *K/Ticket* färbt sich grün, wenn ein Produkt nah am
+  Sticker-Wert liegt; *Grind* zeigt, wie viele Events ein Sieger bzw. ein
+  Mittelfeld-Spieler dafür braucht.
+- **PDF-Report** über „Als PDF speichern“ (Druckansicht mit Parametern, Monats-Rechnung
+  und kompletter Wall).
 
-| Tab | Funktion |
-| --- | --- |
-| **Rechner** | Spieler (auch mehrere gleichzeitig) auswählen, Leistungen abhaken, Tickets gutschreiben. Live-Vorschau pro Spieler und gesamt. |
-| **Spieler** | Kader verwalten, Icon setzen, pausieren, manuell Tickets gutschreiben oder abziehen. |
-| **Prize Wall** | Icons, Titles, Banner und Perks einlösen. Guthaben wird automatisch abgezogen, Bestand mitgezählt. |
-| **Tabelle** | Rangliste nach verdienten Tickets inkl. Guthaben und Einlösungen. |
-| **Verlauf** | Jede Buchung mit Datum und Grund — einzeln zurücknehmbar. |
-| **Einstellungen** | Liga-/Saisonname, Ticket-Regeln bearbeiten, Export/Import als JSON, Zurücksetzen. |
-
-### Datenmodell
-
-Guthaben werden nicht gespeichert, sondern immer aus dem **Ledger** (`src/types.ts` → `LedgerEntry`)
-berechnet: jede Gutschrift, Einlösung und Korrektur ist eine Buchung mit `delta`.
-Dadurch stimmen Tabelle und Guthaben immer überein, und „Rückgängig“ ist einfach das
-Löschen einer Buchung.
-
-```
-src/
-  lib/league.ts        Auswertungen (Guthaben, Tabelle, Vorschau)
-  lib/storage.ts       localStorage + JSON-Export/Import
-  lib/seed.ts          Startdaten (Regeln, Prize Wall, Demo-Spieler)
-  state/               Reducer + React-Context
-  components/          eine Datei pro Tab
-```
-
-## Speicherung
-
-Alles liegt aktuell im **localStorage des Browsers** (`sim-league:v1`) — jeder sieht also
-nur seinen eigenen Stand. Unter *Einstellungen → Daten* lässt sich der Stand als JSON
-exportieren und wieder importieren, z. B. um ihn an andere weiterzugeben oder später
-nach Supabase zu migrieren.
+Alles läuft im Browser, ohne Backend. Eingaben werden nicht gespeichert — nach einem
+Reload stehen wieder die Startwerte da; für Festhalten den PDF-Export nutzen.
 
 ## Deployment auf Vercel
 
-1. Repo auf GitHub pushen.
-2. In Vercel „Add New Project“ → dieses Repo wählen.
-3. Framework-Preset **Vite** wird automatisch erkannt (Build `npm run build`, Output `dist`).
-4. Deploy — ab jetzt deployt jeder Push auf `main` automatisch.
+Das Repo ist mit Vercel verbunden: jeder Push auf `main` deployt automatisch.
+Framework-Preset **Vite**, Build `npm run build`, Output `dist`. Environment-Variablen
+braucht die App keine.
 
-Environment-Variablen braucht die App im aktuellen Stand keine.
+## Weiterbauen
 
-## Nächste Schritte
+Die ganze App steckt in `src/App.jsx`:
 
-- **Supabase-Backend**: Tabellen `players`, `ledger`, `prize_items`; Supabase Auth für
-  Spieler-Logins, damit alle denselben Stand sehen. Das Ledger-Modell lässt sich 1:1
-  auf eine Tabelle abbilden.
-- **Admin-Bereich**: Einlösungen bestätigen/ablehnen statt sofort abbuchen.
-- **Spielerprofile**: eingelöste Icons/Titles/Banner als aktives Profilbild setzen.
+- `CATALOG` — Produkte fürs „+ Produkt“-Dropdown samt Ticket-/CHF-Defaults
+- `defaultWall()` — die Prize Wall beim Start
+- `calc()` — die komplette Monatsrechnung (Umsatz, Tickets, Kosten, Gebühren, Gewinn)
 
-API-Keys gehören in Vercel-Environment-Variablen bzw. eine lokale `.env` (steht in `.gitignore`),
-niemals in den Code.
+Anpassen, committen, pushen → live.
