@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { isConfigured, signIn } from "./lib/supabase";
+import { configReport, isConfigured, signIn, urlProblem } from "./lib/supabase";
 import { useSession } from "./lib/useBoardSync";
 
 const GOLD = "#E0A83B";
@@ -25,10 +25,11 @@ export default function BoardGate({ children }) {
     try {
       await signIn(password);
     } catch (err) {
+      const msg = err.message || String(err);
       setError(
-        /invalid login/i.test(err.message || "")
+        /invalid login/i.test(msg)
           ? "Passwort stimmt nicht."
-          : "Anmeldung fehlgeschlagen: " + (err.message || String(err)),
+          : urlProblem() || "Anmeldung fehlgeschlagen: " + msg,
       );
     } finally {
       setBusy(false);
@@ -61,7 +62,12 @@ export default function BoardGate({ children }) {
         >
           {busy ? "Wird geprüft …" : "Öffnen"}
         </button>
-        {error && <p className="mt-3 text-[13px] text-rose-300">{error}</p>}
+        {error && <p className="mt-3 text-[13px] leading-relaxed text-rose-300">{error}</p>}
+        {error && (
+          <p className="mt-2 break-all text-[11px] text-slate-500">
+            Angesprochen: {configReport.urlWert}/auth/v1
+          </p>
+        )}
       </form>
     </div>
   );

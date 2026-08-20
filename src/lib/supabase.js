@@ -11,11 +11,36 @@ export const BOARD_ID = "main";
 export const isConfigured = Boolean(url && key);
 export const supabase = isConfigured ? createClient(url, key) : null;
 
+/**
+ * Die Project URL muss die blanke Projektadresse sein. Hängt ein Pfad dran —
+ * etwa weil die Dashboard-Adresse kopiert wurde — verlängert der Client ihn
+ * einfach und die Anmeldung landet im Nichts.
+ */
+export function urlProblem() {
+  if (!url) return null;
+  let parsed;
+  try {
+    parsed = new URL(url.trim());
+  } catch {
+    return `„${url}" ist keine gültige URL.`;
+  }
+  // Hostname zuerst: bei einer Dashboard-Adresse wäre der Pfad-Hinweis irreführend,
+  // denn „nur den Pfad weglassen" führt dort auf supabase.com statt aufs Projekt.
+  if (!/\.supabase\.(co|in)$/.test(parsed.hostname)) {
+    return `„${parsed.hostname}" ist keine Supabase-Projektadresse. Erwartet wird <projekt-id>.supabase.co — zu finden unter Project Settings → API → Project URL. Die Adresse aus der Browserzeile des Dashboards ist es nicht.`;
+  }
+  if (parsed.pathname !== "/" && parsed.pathname !== "") {
+    return `Die Project URL darf keinen Pfad enthalten. Eingetragen ist „${url}", erwartet wird nur „${parsed.origin}".`;
+  }
+  return null;
+}
+
 /** Welche Variablen im Build angekommen sind — ohne den Key selbst zu zeigen. */
 export const configReport = {
   VITE_SUPABASE_URL: url ? "gesetzt" : "fehlt",
   VITE_SUPABASE_ANON_KEY: key ? "gesetzt" : "fehlt",
   VITE_TEAM_EMAIL: TEAM_EMAIL,
+  urlWert: url || null,
   bereit: isConfigured,
   // Eigene VITE_-Variablen, die Vite tatsächlich eingebaut hat. Deckt Tippfehler
   // im Namen auf: fehlt eine erwartete, steht hier, wie sie wirklich heisst.
