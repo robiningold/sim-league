@@ -11,6 +11,17 @@ export const BOARD_ID = "main";
 export const isConfigured = Boolean(url && key);
 export const supabase = isConfigured ? createClient(url, key) : null;
 
+/** Welche Variablen im Build angekommen sind — ohne den Key selbst zu zeigen. */
+export const configReport = {
+  VITE_SUPABASE_URL: url ? "gesetzt" : "fehlt",
+  VITE_SUPABASE_ANON_KEY: key ? "gesetzt" : "fehlt",
+  VITE_TEAM_EMAIL: TEAM_EMAIL,
+  bereit: isConfigured,
+};
+
+// Damit man im Browser mit einem Wort nachsehen kann: window.liga
+if (typeof window !== "undefined") window.liga = configReport;
+
 export async function signIn(password) {
   const { error } = await supabase.auth.signInWithPassword({ email: TEAM_EMAIL, password });
   if (error) throw error;

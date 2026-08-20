@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useBoardSync, useSession } from "./lib/useBoardSync";
 import { uploadImage } from "./lib/boardApi";
-import { signOut } from "./lib/supabase";
+import { configReport, isConfigured, signOut } from "./lib/supabase";
 
 const GOLD = "#E0A83B";
 const CARD = "#0f2636";
@@ -151,7 +151,7 @@ const Tool = ({ active, danger, children, ...props }) => (
 const Divider = () => <span className="h-5 w-px bg-slate-700 mx-0.5" />;
 
 const SYNC_LABEL = {
-  local: "nur in diesem Browser",
+  local: "lokal · Supabase nicht eingerichtet",
   off: "nicht angemeldet",
   connecting: "verbindet …",
   live: "live · alle sehen dasselbe",
@@ -463,8 +463,20 @@ export default function IdeaBoard() {
         </div>
       </div>
 
+      {!isConfigured && (
+        <div className="pointer-events-none absolute left-3 right-3 top-16 z-20">
+          <p className="rounded-lg border px-3 py-2 text-[12px] leading-relaxed"
+             style={{ borderColor: "rgba(224,168,59,0.4)", background: "rgba(224,168,59,0.1)", color: GOLD }}>
+            Dieses Board liegt nur in diesem Browser — niemand sonst sieht es. Für das gemeinsame Board fehlen im Build:
+            {" "}<b>VITE_SUPABASE_URL {configReport.VITE_SUPABASE_URL}</b>,{" "}
+            <b>VITE_SUPABASE_ANON_KEY {configReport.VITE_SUPABASE_ANON_KEY}</b>. In Vercel setzen und neu deployen —
+            ohne Build-Cache, sonst greifen sie nicht.
+          </p>
+        </div>
+      )}
+
       {(linkMode || warn) && (
-        <div className="pointer-events-none absolute left-3 top-16 z-20 max-w-lg">
+        <div className="pointer-events-none absolute left-3 z-20 max-w-lg" style={{ top: isConfigured ? "4rem" : "7.5rem" }}>
           {linkMode && (
             <p className="rounded-lg border px-3 py-1.5 text-[12px]" style={{ borderColor: "rgba(224,168,59,0.4)", background: "rgba(224,168,59,0.1)", color: GOLD }}>
               {linkFrom ? "Zweites Element anklicken." : "Erstes Element anklicken. Ein Pfeil verschwindet per Klick darauf."}
