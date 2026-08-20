@@ -16,9 +16,10 @@ export default function App() {
   const active = PAGES.find((p) => p.id === page);
 
   return (
-    <div className="app-shell h-screen flex flex-col" style={{ background: SEA }}>
+    <div className="app-shell flex flex-col" style={{ background: SEA, height: "100dvh" }}>
       <style>{`
         input, select, textarea { font-size: 16px; }
+        html, body { overscroll-behavior: none; }
         @media screen { .print-only { display: none; } }
         @media print {
           .no-print { display: none !important; }

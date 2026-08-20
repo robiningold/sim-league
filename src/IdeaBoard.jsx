@@ -66,9 +66,9 @@ const blank = (patch = {}) => ({
 
 const seed = () => ({
   elements: [
-    blank({ x: 80, y: 70, title: "So funktioniert das Board", text: "Element anklicken öffnet rechts die Details. Oben am Rand anfassen zum Verschieben, Ecke unten rechts zieht die Grösse.", color: "gold" }),
-    blank({ x: 380, y: 70, title: "Inhalte", bullets: ["Titel und Beschreibung", "Stichpunkte für Details", "Bilder per Drag-and-drop"], color: "mint" }),
-    blank({ x: 680, y: 70, title: "Struktur", text: "Mehrere Elemente mit Shift markieren und gruppieren. Der Verbinden-Modus zieht Pfeile zwischen zwei Elementen.", color: "sky" }),
+    blank({ x: 80, y: 120, title: "So funktioniert das Board", text: "Element anklicken öffnet rechts die Details. Oben am Rand anfassen zum Verschieben, Ecke unten rechts zieht die Grösse.", color: "gold" }),
+    blank({ x: 380, y: 120, title: "Inhalte", bullets: ["Titel und Beschreibung", "Stichpunkte für Details", "Bilder per Drag-and-drop"], color: "mint" }),
+    blank({ x: 680, y: 120, title: "Struktur", text: "Mehrere Elemente mit Shift markieren und gruppieren. Der Verbinden-Modus zieht Pfeile zwischen zwei Elementen.", color: "sky" }),
   ],
   links: [],
   groups: [],
@@ -276,19 +276,64 @@ export default function IdeaBoard() {
     window.addEventListener("pointerup", up, { once: true });
   };
 
-  const panBoard = (e) => {
-    if (e.button !== 0) return;
-    setSel([]);
-    setLinkFrom(null);
-    const sx = e.clientX;
-    const sy = e.clientY;
-    const start = { ...view };
+  // Touch braucht eine eigene Behandlung: ein Finger schiebt das Board,
+  // zwei Finger zoomen. Ohne touch-action: none schnappt sich der Browser
+  // die Geste vorher zum Scrollen und man kann nichts mehr verschieben.
+  const pointers = useRef(new Map());
+  const gesture = useRef(null);
+  const viewRef = useRef(view);
+  viewRef.current = view;
+
+  const twoFingers = () => {
+    const [a, b] = [...pointers.current.values()];
+    return { dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
+  };
+
+  const boardDown = (e) => {
+    if (e.button !== undefined && e.button !== 0 && e.pointerType === "mouse") return;
+    try {
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    } catch {
+      // Manche Browser lehnen das Einfangen ab — die Geste läuft auch ohne.
+    }
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 1) {
+      setSel([]);
+      setLinkFrom(null);
+      gesture.current = { mode: "pan", x: e.clientX, y: e.clientY, view: { ...viewRef.current } };
+    } else if (pointers.current.size === 2) {
+      const { dist, mid } = twoFingers();
+      gesture.current = { mode: "pinch", dist, mid, view: { ...viewRef.current } };
+    }
+  };
+
+  const boardMove = (e) => {
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const g = gesture.current;
+    if (!g) return;
     const rect = wrap.current.getBoundingClientRect();
-    const move = (ev) =>
-      setView(clampView({ ...start, x: start.x + (ev.clientX - sx), y: start.y + (ev.clientY - sy) }, rect));
-    const up = () => window.removeEventListener("pointermove", move);
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up, { once: true });
+    if (g.mode === "pan" && pointers.current.size === 1) {
+      setView(clampView({ ...g.view, x: g.view.x + (e.clientX - g.x), y: g.view.y + (e.clientY - g.y) }, rect));
+    } else if (g.mode === "pinch" && pointers.current.size >= 2) {
+      const { dist, mid } = twoFingers();
+      const z = clamp(g.view.z * (dist / g.dist), 0.3, 2.5);
+      const k = z / g.view.z;
+      const ax = g.mid.x - rect.left;
+      const ay = g.mid.y - rect.top;
+      setView(clampView({ z, x: mid.x - rect.left - (ax - g.view.x) * k, y: mid.y - rect.top - (ay - g.view.y) * k }, rect));
+    }
+  };
+
+  const boardUp = (e) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size === 0) {
+      gesture.current = null;
+    } else if (pointers.current.size === 1) {
+      // Nach dem Zoomen mit dem verbliebenen Finger weiterschieben.
+      const [only] = [...pointers.current.values()];
+      gesture.current = { mode: "pan", x: only.x, y: only.y, view: { ...viewRef.current } };
+    }
   };
 
   const onWheel = (e) => {
@@ -349,8 +394,9 @@ export default function IdeaBoard() {
     const minY = Math.min(...elements.map((n) => n.y));
     const maxX = Math.max(...elements.map((n) => n.x + n.w));
     const maxY = Math.max(...elements.map((n) => n.y + n.h));
-    const z = clamp(Math.min((r.width - 120) / (maxX - minX), (r.height - 120) / (maxY - minY)), 0.3, 1.4);
-    setView(clampView({ z, x: 60 - minX * z, y: 60 - minY * z }, r));
+    const TOP = 96; // Werkzeugleiste freihalten
+    const z = clamp(Math.min((r.width - 40) / (maxX - minX), (r.height - TOP - 40) / (maxY - minY)), 0.3, 1.4);
+    setView(clampView({ z, x: 20 - minX * z, y: TOP - minY * z }, r));
   };
 
   const exportBoard = () => {
@@ -400,7 +446,10 @@ export default function IdeaBoard() {
   return (
     <div className="relative h-full w-full">
       {/* ---------- Werkzeugleiste ---------- */}
-      <div className="absolute left-3 right-3 top-3 z-20 flex flex-wrap items-center gap-2">
+      <div
+        className="absolute left-2 right-2 top-2 z-20 flex items-center gap-2 overflow-x-auto pb-1 sm:left-3 sm:right-3 sm:top-3 sm:flex-wrap sm:overflow-visible sm:pb-0"
+        style={{ touchAction: "pan-x", scrollbarWidth: "none" }}
+      >
         <Tool onClick={() => addElement()}>+ Element</Tool>
         <Tool onClick={() => imgInput.current?.click()}>+ Bild</Tool>
         <input
@@ -465,7 +514,7 @@ export default function IdeaBoard() {
       </div>
 
       {!isConfigured && !hintClosed && (
-        <div className="absolute left-3 top-16 z-20 max-w-lg">
+        <div className="pointer-events-none absolute left-2 right-2 top-14 z-20 max-w-lg sm:left-3 sm:right-auto sm:top-16">
           <div
             className="rounded-lg border px-3 py-2 text-[12px] leading-relaxed"
             style={{ borderColor: "rgba(224,168,59,0.4)", background: "rgba(11,31,46,0.96)", color: GOLD }}
@@ -476,7 +525,11 @@ export default function IdeaBoard() {
                 <b>VITE_SUPABASE_URL {configReport.VITE_SUPABASE_URL}</b>,{" "}
                 <b>VITE_SUPABASE_ANON_KEY {configReport.VITE_SUPABASE_ANON_KEY}</b>.
               </p>
-              <button onClick={() => setHintClosed(true)} className="opacity-60 hover:opacity-100" aria-label="Hinweis schliessen">
+              <button
+                onClick={() => setHintClosed(true)}
+                className="pointer-events-auto -m-2 p-2 opacity-60 hover:opacity-100"
+                aria-label="Hinweis schliessen"
+              >
                 ✕
               </button>
             </div>
@@ -503,7 +556,10 @@ export default function IdeaBoard() {
       {/* ---------- Board ---------- */}
       <div
         ref={wrap}
-        onPointerDown={panBoard}
+        onPointerDown={boardDown}
+        onPointerMove={boardMove}
+        onPointerUp={boardUp}
+        onPointerCancel={boardUp}
         onWheel={onWheel}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
@@ -522,6 +578,10 @@ export default function IdeaBoard() {
         style={{
           background: "#0a1c2a",
           cursor: linkMode ? "crosshair" : "grab",
+          touchAction: "none",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          overscrollBehavior: "none",
         }}
       >
         <div className="absolute left-0 top-0" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.z})`, transformOrigin: "0 0" }}>
@@ -596,7 +656,11 @@ export default function IdeaBoard() {
                   outlineOffset: 1,
                 }}
               >
-                <div onPointerDown={(e) => dragElements(e, dragIds)} className="flex items-center gap-2 px-3 py-2 cursor-move border-b" style={{ borderColor: "#1d354b" }}>
+                <div
+                  onPointerDown={(e) => dragElements(e, dragIds)}
+                  className="flex cursor-move items-center gap-2 border-b px-3 py-2.5"
+                  style={{ borderColor: "#1d354b", touchAction: "none" }}
+                >
                   <span className="h-2 w-2 rounded-full shrink-0" style={{ background: a.dot }} />
                   <span className="flex-1 truncate text-[13px] font-medium text-slate-100">{el.title || "Ohne Titel"}</span>
                 </div>
@@ -628,7 +692,12 @@ export default function IdeaBoard() {
                   </div>
                 )}
 
-                <div onPointerDown={(e) => resizeElement(e, el)} className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize" title="Grösse ändern">
+                <div
+                  onPointerDown={(e) => resizeElement(e, el)}
+                  className="absolute bottom-0 right-0 h-7 w-7 cursor-nwse-resize"
+                  style={{ touchAction: "none" }}
+                  title="Grösse ändern"
+                >
                   <div className="absolute bottom-1 right-1 h-2 w-2 border-b-2 border-r-2" style={{ borderColor: "#3a5876" }} />
                 </div>
               </div>
@@ -636,14 +705,17 @@ export default function IdeaBoard() {
           })}
         </div>
 
-        <div className="absolute bottom-3 flex items-center gap-2 rounded-lg bg-black/45 px-2.5 py-1 text-[11px] text-slate-400" style={{ right: open ? "23rem" : "0.75rem" }}>
+        <div
+          className="absolute bottom-3 flex items-center gap-2 rounded-lg bg-black/45 px-2.5 py-1 text-[11px] text-slate-400"
+          style={{ right: "0.75rem", bottom: open ? "calc(62% + 0.75rem)" : "0.75rem" }}
+        >
           <span>{elements.length} Elemente · {links.length} Verbindungen · {Math.round(view.z * 100)} %</span>
           <span className="h-3 w-px bg-slate-700" />
           <span style={{ color: SYNC_COLOR[sync.status] || "#8ba0b3" }} title={sync.error || ""}>
             {SYNC_LABEL[sync.status] || sync.status}
           </span>
         </div>
-        <p className="pointer-events-none absolute bottom-3 left-3 max-w-[26rem] text-[11px] leading-relaxed text-slate-600">
+        <p className="pointer-events-none absolute bottom-3 left-3 hidden max-w-[26rem] text-[11px] leading-relaxed text-slate-600 lg:block">
           Kopfzeile ziehen verschiebt · Ecke unten rechts ändert die Grösse · Shift-Klick wählt mehrere · Mausrad zoomt ·
           leere Fläche ziehen verschiebt das Board · Bilder aufs Board ziehen oder mit Strg+V einfügen
         </p>
@@ -652,7 +724,7 @@ export default function IdeaBoard() {
       {/* ---------- Detailpanel ---------- */}
       {open && (
         <aside
-          className="absolute right-0 top-0 bottom-0 z-30 w-[22rem] max-w-full overflow-y-auto border-l p-4"
+          className="absolute inset-x-0 bottom-0 top-auto z-30 h-[62%] overflow-y-auto rounded-t-2xl border-t p-4 sm:inset-x-auto sm:right-0 sm:top-0 sm:h-auto sm:w-[22rem] sm:rounded-none sm:border-l sm:border-t-0"
           style={{ background: PANEL, borderColor: "#1d354b" }}
           onPointerDown={(e) => e.stopPropagation()}
         >
