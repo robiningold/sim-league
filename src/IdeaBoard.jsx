@@ -153,7 +153,7 @@ const SYNC_LABEL = {
   local: "lokal · Supabase nicht eingerichtet",
   off: "nicht angemeldet",
   connecting: "verbindet …",
-  live: "live · alle sehen dasselbe",
+  live: "live",
   saving: "speichert …",
   error: "Sync-Fehler",
 };
