@@ -121,6 +121,7 @@ export default function TicketRechner() {
   const [t34, setT34] = useState(8);
   const [t58, setT58] = useState(6);
   const [tPerWin, setTPerWin] = useState(1);
+  const [winBonus, setWinBonus] = useState(10); // Extra-Tickets für den Turniersieger
   const [wall, setWall] = useState(defaultWall);
   const [pick, setPick] = useState("Display OP-07");
   const [fixedM, setFixedM] = useState(110);
@@ -158,7 +159,8 @@ export default function TicketRechner() {
 
   const eventsPerMonth = num(tpw) * 4;
   const topXTickets = num(t1) + num(t2) + 2 * num(t34) + 4 * num(t58);
-  const winTicketsFor = (att) => num(tPerWin) * Math.floor(att / 2) * num(rounds);
+  const winTicketsFor = (att) =>
+    att >= 2 ? num(tPerWin) * Math.floor(att / 2) * num(rounds) + num(winBonus) : 0;
 
   const calc = (f, md) => {
     const att = Math.round(num(capacity) * f / 100);
@@ -172,7 +174,7 @@ export default function TicketRechner() {
     return { att, entries, revenue, tpe, ticketsMonth, realCost, fees, profit, pct: revenue > 0 ? realCost / revenue : 0 };
   };
 
-  const dep = [capacity, fill, tpw, rounds, entry, V, RC, t1, t2, t34, t58, tPerWin, fixedM, feePct, perTk];
+  const dep = [capacity, fill, tpw, rounds, entry, V, RC, t1, t2, t34, t58, tPerWin, winBonus, fixedM, feePct, perTk];
   const A = useMemo(() => calc(num(fill), mode), [...dep, mode]);
   const cTop = useMemo(() => calc(num(fill), "topx"), dep);
   const cWin = useMemo(() => calc(num(fill), "win"), dep);
@@ -192,7 +194,7 @@ export default function TicketRechner() {
   // Wie viel Eintritt ein Ø-Spieler für einen Preis aufwendet, gemessen am Ladenpreis.
   const effortRatio = wallCostPerTicket > 0 ? playerTicketCost / wallCostPerTicket : 0;
 
-  const earnerTop = mode === "topx" ? num(t1) : num(rounds) * num(tPerWin);
+  const earnerTop = mode === "topx" ? num(t1) : num(rounds) * num(tPerWin) + num(winBonus);
   const earnerMid = mode === "topx" ? num(t58) : Math.round(num(rounds) / 2) * num(tPerWin);
 
   const chartData = useMemo(() => {
@@ -316,8 +318,14 @@ export default function TicketRechner() {
                   <NumField label="5.–8. (je)" value={t58} min={0} max={80} step={2} onChange={setT58} suffix="T" />
                 </Sec>
               ) : (
-                <Sec title="Auszahlung: Ticket pro Win" hint={Math.floor(A.att / 2) + " Matches × " + num(rounds) + " Runden. Turniersieger = " + num(rounds) * num(tPerWin) + " T."}>
+                <Sec title="Auszahlung: Ticket pro Win" hint={Math.floor(A.att / 2) + " Matches × " + num(rounds) + " Runden = " + (A.tpe - num(winBonus)) + " T, plus " + num(winBonus) + " T Siegerbonus."}>
                   <NumField label="Tickets pro Match-Win" value={tPerWin} min={1} max={10} step={1} onChange={setTPerWin} suffix="T" />
+                  <NumField label="Bonus für den Turniersieger" value={winBonus} min={0} max={50} step={1} onChange={setWinBonus} suffix="T" />
+                  <Row label={"Turniersieger holt (" + num(rounds) + "–0)"} value={tk(earnerTop) + " · " + chf0(earnerTop * num(V)) + " Ware"} tone="p" />
+                  <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
+                    Der Bonus geht einmal pro Event an den Erstplatzierten und kostet euch
+                    {" " + chf0(num(winBonus) * eventsPerMonth * num(RC))} im Monat.
+                  </p>
                 </Sec>
               )}
 
@@ -471,7 +479,7 @@ export default function TicketRechner() {
               ["Eintritt", chf(num(entry))],
               ["Ticket-Wert / reale Kosten", chf(num(V)) + " / " + chf(num(RC))],
               ["Wall-Aufschlag", num(markup) + " % vom Einkaufspreis"],
-              ["Auszahlung", mode === "topx" ? "Top 8 (" + topXTickets + " T/Event)" : num(tPerWin) + " T pro Win (" + winTicketsFor(A.att) + " T/Event)"],
+              ["Auszahlung", mode === "topx" ? "Top 8 (" + topXTickets + " T/Event)" : num(tPerWin) + " T pro Win + " + num(winBonus) + " T Siegerbonus (" + winTicketsFor(A.att) + " T/Event)"],
             ].map(([k, v]) => (
               <tr key={k}><td style={{ padding: "3px 0", color: "#555" }}>{k}</td><td style={{ textAlign: "right", fontFamily: "monospace" }}>{v}</td></tr>
             ))}
