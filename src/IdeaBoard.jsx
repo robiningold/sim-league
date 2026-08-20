@@ -21,6 +21,30 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 const EL_W = 250;
 const EL_H = 175;
+// Feste Arbeitsfläche. Elemente können sie nicht verlassen, das Board auch nicht
+// aus dem Bild gescrollt werden — nichts geht "hinter dem Rand" verloren.
+const BOARD_W = 4000;
+const BOARD_H = 2600;
+const PAD = 60; // wie weit man über den Board-Rand hinausschauen darf
+
+const inBounds = (el) => ({
+  ...el,
+  w: clamp(el.w, 180, BOARD_W),
+  h: clamp(el.h, 110, BOARD_H),
+  x: clamp(el.x, 0, BOARD_W - clamp(el.w, 180, BOARD_W)),
+  y: clamp(el.y, 0, BOARD_H - clamp(el.h, 110, BOARD_H)),
+});
+
+/** Hält das Board im Bild: passt es rein, wird zentriert, sonst am Rand gestoppt. */
+const clampView = (v, rect) => {
+  const bw = BOARD_W * v.z;
+  const bh = BOARD_H * v.z;
+  return {
+    z: v.z,
+    x: bw + 2 * PAD <= rect.width ? (rect.width - bw) / 2 : clamp(v.x, rect.width - bw - PAD, PAD),
+    y: bh + 2 * PAD <= rect.height ? (rect.height - bh) / 2 : clamp(v.y, rect.height - bh - PAD, PAD),
+  };
+};
 
 const blank = (patch = {}) => ({
   id: uid("e"),
@@ -71,12 +95,12 @@ function load() {
     const raw = localStorage.getItem(STORAGE);
     if (raw) {
       const d = JSON.parse(raw);
-      if (Array.isArray(d.elements)) return { elements: d.elements, links: d.links || [], groups: d.groups || [] };
+      if (Array.isArray(d.elements)) return { elements: d.elements.map(inBounds), links: d.links || [], groups: d.groups || [] };
     }
     const old = localStorage.getItem(LEGACY);
     if (old) {
       const d = JSON.parse(old);
-      if (Array.isArray(d.notes)) return { elements: migrate(d), links: d.links || [], groups: d.groups || [] };
+      if (Array.isArray(d.notes)) return { elements: migrate(d).map(inBounds), links: d.links || [], groups: d.groups || [] };
     }
   } catch {
     /* kaputter Speicher — lieber neu anfangen als abstürzen */
@@ -159,7 +183,7 @@ export default function IdeaBoard() {
   const addElement = (p = {}) => {
     const r = wrap.current.getBoundingClientRect();
     const c = toBoard(r.left + r.width / 2, r.top + r.height / 2);
-    const el = blank({ x: c.x - EL_W / 2 + (Math.random() * 60 - 30), y: c.y - EL_H / 2 + (Math.random() * 60 - 30), ...p });
+    const el = inBounds(blank({ x: c.x - EL_W / 2 + (Math.random() * 60 - 30), y: c.y - EL_H / 2 + (Math.random() * 60 - 30), ...p }));
     setElements((es) => [...es, el]);
     setSel([el.id]);
     setOpenId(el.id);
@@ -191,7 +215,9 @@ export default function IdeaBoard() {
     const move = (ev) => {
       const dx = (ev.clientX - sx) / z;
       const dy = (ev.clientY - sy) / z;
-      setElements((es) => es.map((n) => (origin.has(n.id) ? { ...n, x: origin.get(n.id).x + dx, y: origin.get(n.id).y + dy } : n)));
+      setElements((es) =>
+        es.map((n) => (origin.has(n.id) ? inBounds({ ...n, x: origin.get(n.id).x + dx, y: origin.get(n.id).y + dy }) : n)),
+      );
     };
     const up = () => window.removeEventListener("pointermove", move);
     window.addEventListener("pointermove", move);
@@ -204,10 +230,9 @@ export default function IdeaBoard() {
     const sx = e.clientX;
     const sy = e.clientY;
     const move = (ev) => {
-      patch(el.id, {
-        w: clamp(el.w + (ev.clientX - sx) / z, 180, 640),
-        h: clamp(el.h + (ev.clientY - sy) / z, 110, 640),
-      });
+      const w = clamp(el.w + (ev.clientX - sx) / z, 180, 640);
+      const h = clamp(el.h + (ev.clientY - sy) / z, 110, 640);
+      patch(el.id, { w: Math.min(w, BOARD_W - el.x), h: Math.min(h, BOARD_H - el.y) });
     };
     const up = () => window.removeEventListener("pointermove", move);
     window.addEventListener("pointermove", move);
@@ -221,7 +246,9 @@ export default function IdeaBoard() {
     const sx = e.clientX;
     const sy = e.clientY;
     const start = { ...view };
-    const move = (ev) => setView({ ...start, x: start.x + (ev.clientX - sx), y: start.y + (ev.clientY - sy) });
+    const rect = wrap.current.getBoundingClientRect();
+    const move = (ev) =>
+      setView(clampView({ ...start, x: start.x + (ev.clientX - sx), y: start.y + (ev.clientY - sy) }, rect));
     const up = () => window.removeEventListener("pointermove", move);
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up, { once: true });
@@ -234,7 +261,7 @@ export default function IdeaBoard() {
     setView((v) => {
       const z = clamp(v.z * (1 - e.deltaY * 0.0012), 0.3, 2.5);
       const k = z / v.z;
-      return { z, x: cx - (cx - v.x) * k, y: cy - (cy - v.y) * k };
+      return clampView({ z, x: cx - (cx - v.x) * k, y: cy - (cy - v.y) * k }, r);
     });
   };
 
@@ -286,7 +313,7 @@ export default function IdeaBoard() {
     const maxX = Math.max(...elements.map((n) => n.x + n.w));
     const maxY = Math.max(...elements.map((n) => n.y + n.h));
     const z = clamp(Math.min((r.width - 120) / (maxX - minX), (r.height - 120) / (maxY - minY)), 0.3, 1.4);
-    setView({ z, x: 60 - minX * z, y: 60 - minY * z });
+    setView(clampView({ z, x: 60 - minX * z, y: 60 - minY * z }, r));
   };
 
   const exportBoard = () => {
@@ -378,7 +405,7 @@ export default function IdeaBoard() {
 
         <div className="ml-auto flex items-center gap-2">
           <Tool onClick={fitAll}>Alles zeigen</Tool>
-          <Tool onClick={() => setView({ x: 0, y: 0, z: 1 })}>100 %</Tool>
+          <Tool onClick={() => setView(clampView({ x: 0, y: 0, z: 1 }, wrap.current.getBoundingClientRect()))}>100 %</Tool>
           <Tool onClick={exportBoard}>Export</Tool>
           <label
             className="rounded-lg px-3 py-1.5 text-[13px] font-medium border cursor-pointer whitespace-nowrap"
@@ -430,11 +457,20 @@ export default function IdeaBoard() {
         tabIndex={0}
         className="absolute inset-0 overflow-hidden outline-none"
         style={{
-          background: `${CARD} radial-gradient(circle at 1px 1px, rgba(148,163,184,0.14) 1px, transparent 0) ${view.x}px ${view.y}px / ${26 * view.z}px ${26 * view.z}px`,
+          background: "#0a1c2a",
           cursor: linkMode ? "crosshair" : "grab",
         }}
       >
         <div className="absolute left-0 top-0" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.z})`, transformOrigin: "0 0" }}>
+          <div
+            className="absolute left-0 top-0 rounded-lg"
+            style={{
+              width: BOARD_W,
+              height: BOARD_H,
+              border: "1px solid #24405a",
+              background: `${CARD} radial-gradient(circle at 1px 1px, rgba(148,163,184,0.14) 1px, transparent 0) 0 0 / 26px 26px`,
+            }}
+          />
           <svg className="absolute left-0 top-0 overflow-visible" style={{ width: 1, height: 1 }}>
             <defs>
               <marker id="ideaArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
