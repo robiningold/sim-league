@@ -105,7 +105,7 @@ const defaultWall = () => [
 ];
 
 export default function TicketRechner() {
-  const [capacity, setCapacity] = useState(64);
+  const [capacity, setCapacity] = useState(32);
   const [fill, setFill] = useState(70);
   const [tpw, setTpw] = useState(1);
   const [rounds, setRounds] = useState(5);
@@ -113,10 +113,11 @@ export default function TicketRechner() {
   const [V, setV] = useState(PEG);      // Ticket-Wert (Sticker)
   const [physShare, setPhysShare] = useState(80); // % der Tickets, die für physische Preise draufgehen
   const [mode, setMode] = useState("win");
-  const [t1, setT1] = useState(70);
-  const [t2, setT2] = useState(45);
-  const [t34, setT34] = useState(28);
-  const [t58, setT58] = useState(16);
+  // Top-8-Verteilung auf dieselbe Ticketmenge wie "pro Win" skaliert: 24 + 16 + 2×8 + 4×6 = 80
+  const [t1, setT1] = useState(24);
+  const [t2, setT2] = useState(16);
+  const [t34, setT34] = useState(8);
+  const [t58, setT58] = useState(6);
   const [tPerWin, setTPerWin] = useState(1);
   const [wall, setWall] = useState(defaultWall);
   const [pick, setPick] = useState("Display OP-07");
