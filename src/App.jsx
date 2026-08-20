@@ -92,6 +92,20 @@ const CATALOG = {
   "Custom Produkt": { tickets: 10, cost: 0, digital: false },
 };
 
+// Auszahlungsstufen für Top X: jede Stufe verdoppelt die Plätze.
+const TIERS = [
+  { label: "1. Platz", from: 1, to: 1 },
+  { label: "2. Platz", from: 2, to: 2 },
+  { label: "3.–4.", from: 3, to: 4 },
+  { label: "5.–8.", from: 5, to: 8 },
+  { label: "9.–16.", from: 9, to: 16 },
+  { label: "17.–32.", from: 17, to: 32 },
+  { label: "33.–64.", from: 33, to: 64 },
+  { label: "65.–128.", from: 65, to: 128 },
+  { label: "129.–256.", from: 129, to: 256 },
+];
+const TIER_START = [24, 16, 8, 6, 4, 2, 1, 1, 1];
+
 let ID = 1;
 const mk = (name, tickets, cost) => ({ id: ID++, name, tickets, cost });
 const fromCatalog = (name) => mk(name, CATALOG[name].tickets, CATALOG[name].cost);
@@ -116,10 +130,8 @@ export default function TicketRechner() {
   const [markup, setMarkup] = useState(MARKUP_START); // % vom Einkaufspreis, den der Spieler zahlt
   const [mode, setMode] = useState("win");
   // Top-8-Verteilung auf dieselbe Ticketmenge wie "pro Win" skaliert: 24 + 16 + 2×8 + 4×6 = 80
-  const [t1, setT1] = useState(24);
-  const [t2, setT2] = useState(16);
-  const [t34, setT34] = useState(8);
-  const [t58, setT58] = useState(6);
+  const [payoutPct, setPayoutPct] = useState(25);       // % des Feldes, das Tickets bekommt
+  const [tierTickets, setTierTickets] = useState(TIER_START);
   const [tPerWin, setTPerWin] = useState(1);
   const [winBonus, setWinBonus] = useState(10); // Extra-Tickets für den Turniersieger
   const [wall, setWall] = useState(defaultWall);
@@ -158,7 +170,14 @@ export default function TicketRechner() {
   const RC = wallCostPerTicket;
 
   const eventsPerMonth = num(tpw) * 4;
-  const topXTickets = num(t1) + num(t2) + 2 * num(t34) + 4 * num(t58);
+  const setTier = (i, v) => setTierTickets((t) => t.map((x, j) => (j === i ? v : x)));
+  // Wie viele Plätze im Geld sind, und wie viele davon in eine Staffel fallen.
+  const paidFor = (att) => (att < 1 ? 0 : Math.max(1, Math.round(att * num(payoutPct) / 100)));
+  const tierCount = (tier, paid) => Math.max(0, Math.min(tier.to, paid) - tier.from + 1);
+  const topXTicketsFor = (att) => {
+    const paid = paidFor(att);
+    return TIERS.reduce((sum, t, i) => sum + tierCount(t, paid) * num(tierTickets[i]), 0);
+  };
   const winTicketsFor = (att) =>
     att >= 2 ? num(tPerWin) * Math.floor(att / 2) * num(rounds) + num(winBonus) : 0;
 
@@ -166,7 +185,7 @@ export default function TicketRechner() {
     const att = Math.round(num(capacity) * f / 100);
     const entries = att * eventsPerMonth;
     const revenue = entries * num(entry);
-    const tpe = md === "topx" ? topXTickets : winTicketsFor(att);
+    const tpe = md === "topx" ? topXTicketsFor(att) : winTicketsFor(att);
     const ticketsMonth = tpe * eventsPerMonth;
     const realCost = ticketsMonth * num(RC);
     const fees = revenue * num(feePct) / 100 + entries * num(perTk);
@@ -174,7 +193,7 @@ export default function TicketRechner() {
     return { att, entries, revenue, tpe, ticketsMonth, realCost, fees, profit, pct: revenue > 0 ? realCost / revenue : 0 };
   };
 
-  const dep = [capacity, fill, tpw, rounds, entry, V, RC, t1, t2, t34, t58, tPerWin, winBonus, fixedM, feePct, perTk];
+  const dep = [capacity, fill, tpw, rounds, entry, V, RC, payoutPct, tierTickets, tPerWin, winBonus, fixedM, feePct, perTk];
   const A = useMemo(() => calc(num(fill), mode), [...dep, mode]);
   const cTop = useMemo(() => calc(num(fill), "topx"), dep);
   const cWin = useMemo(() => calc(num(fill), "win"), dep);
@@ -194,8 +213,10 @@ export default function TicketRechner() {
   // Wie viel Eintritt ein Ø-Spieler für einen Preis aufwendet, gemessen am Ladenpreis.
   const effortRatio = wallCostPerTicket > 0 ? playerTicketCost / wallCostPerTicket : 0;
 
-  const earnerTop = mode === "topx" ? num(t1) : num(rounds) * num(tPerWin) + num(winBonus);
-  const earnerMid = mode === "topx" ? num(t58) : Math.round(num(rounds) / 2) * num(tPerWin);
+  const paidSeats = paidFor(A.att);
+  const lastPaidTier = TIERS.reduce((last, t, i) => (tierCount(t, paidSeats) > 0 ? i : last), 0);
+  const earnerTop = mode === "topx" ? num(tierTickets[0]) : num(rounds) * num(tPerWin) + num(winBonus);
+  const earnerMid = mode === "topx" ? num(tierTickets[lastPaidTier]) : Math.round(num(rounds) / 2) * num(tPerWin);
 
   const chartData = useMemo(() => {
     const a = [];
@@ -311,11 +332,28 @@ export default function TicketRechner() {
               </Sec>
 
               {mode === "topx" ? (
-                <Sec title="Auszahlung: Top X (Tickets)">
-                  <NumField label="1. Platz" value={t1} min={0} max={200} step={5} onChange={setT1} suffix="T" />
-                  <NumField label="2. Platz" value={t2} min={0} max={150} step={5} onChange={setT2} suffix="T" />
-                  <NumField label="3.–4. (je)" value={t34} min={0} max={100} step={2} onChange={setT34} suffix="T" />
-                  <NumField label="5.–8. (je)" value={t58} min={0} max={80} step={2} onChange={setT58} suffix="T" />
+                <Sec
+                  title="Auszahlung: Top X"
+                  hint={"Top " + num(payoutPct) + " % = " + paidSeats + " von " + A.att + " Spielern im Geld. Die Staffeln passen sich der Feldgrösse an."}
+                >
+                  <NumField label="Bezahlte Plätze" value={payoutPct} min={5} max={100} step={5} onChange={setPayoutPct} suffix="%" />
+                  {TIERS.map((t, i) => {
+                    const n = tierCount(t, paidSeats);
+                    if (n <= 0) return null;
+                    return (
+                      <NumField
+                        key={t.label}
+                        label={t.label + (n > 1 ? " · " + n + " × je" : "")}
+                        value={tierTickets[i]}
+                        min={0}
+                        max={200}
+                        step={1}
+                        onChange={(v) => setTier(i, v)}
+                        suffix="T"
+                      />
+                    );
+                  })}
+                  <Row label="Summe pro Event" value={tk(A.tpe)} tone="g" strong />
                 </Sec>
               ) : (
                 <Sec title="Auszahlung: Ticket pro Win" hint={Math.floor(A.att / 2) + " Matches × " + num(rounds) + " Runden = " + (A.tpe - num(winBonus)) + " T, plus " + num(winBonus) + " T Siegerbonus."}>
@@ -404,7 +442,7 @@ export default function TicketRechner() {
                 <button onClick={addRow} className="rounded px-3 py-1.5 text-[13px] font-medium border" style={{ borderColor: GOLD, color: GOLD }}>+ Produkt</button>
               </div>
             </div>
-            <p className="text-[11px] text-slate-500 mb-3">Namen, Ticket-Preise und CHF-Kosten frei anpassen. Die Ticketpreise kommen aus Ticket-Wert und Aufschlag links; hier überschreibst du einzelne Zeilen — bis du einen der beiden Regler wieder bewegst. Grind = Events als {mode === "topx" ? "1. / 5.–8." : "Sieger / 50%-Spieler"}. „Ø zahlt“ = was ein Durchschnittsspieler an Eintritt investiert, um den Preis zu holen.</p>
+            <p className="text-[11px] text-slate-500 mb-3">Namen, Ticket-Preise und CHF-Kosten frei anpassen. Die Ticketpreise kommen aus Ticket-Wert und Aufschlag links; hier überschreibst du einzelne Zeilen — bis du einen der beiden Regler wieder bewegst. Grind = Events als {mode === "topx" ? "1. / letzte bezahlte Staffel" : "Sieger / 50%-Spieler"}. „Ø zahlt“ = was ein Durchschnittsspieler an Eintritt investiert, um den Preis zu holen.</p>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[660px] text-[13px]">
                 <thead>
@@ -479,7 +517,7 @@ export default function TicketRechner() {
               ["Eintritt", chf(num(entry))],
               ["Ticket-Wert / reale Kosten", chf(num(V)) + " / " + chf(num(RC))],
               ["Wall-Aufschlag", num(markup) + " % vom Einkaufspreis"],
-              ["Auszahlung", mode === "topx" ? "Top 8 (" + topXTickets + " T/Event)" : num(tPerWin) + " T pro Win + " + num(winBonus) + " T Siegerbonus (" + winTicketsFor(A.att) + " T/Event)"],
+              ["Auszahlung", mode === "topx" ? "Top " + num(payoutPct) + " % = " + paidSeats + " Plätze (" + topXTicketsFor(A.att) + " T/Event)" : num(tPerWin) + " T pro Win + " + num(winBonus) + " T Siegerbonus (" + winTicketsFor(A.att) + " T/Event)"],
             ].map(([k, v]) => (
               <tr key={k}><td style={{ padding: "3px 0", color: "#555" }}>{k}</td><td style={{ textAlign: "right", fontFamily: "monospace" }}>{v}</td></tr>
             ))}
