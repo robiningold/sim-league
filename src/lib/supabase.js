@@ -1,6 +1,22 @@
 import { createClient } from "@supabase/supabase-js";
 
-const url = import.meta.env.VITE_SUPABASE_URL;
+const rawUrl = import.meta.env.VITE_SUPABASE_URL;
+
+/**
+ * In Supabase steht neben der Project URL auch die Data-API-Adresse, die auf
+ * /rest/v1 endet — die wird leicht mitkopiert. Der Client braucht die blanke
+ * Projektadresse, also nehmen wir ihm den Zusatz ab.
+ */
+function normalizeUrl(value) {
+  if (!value) return value;
+  return value
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/rest\/v1$/i, "")
+    .replace(/\/+$/, "");
+}
+
+const url = normalizeUrl(rawUrl);
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 /** Gemeinsames Liga-Konto — die Adresse ist fix, das Passwort tippt ihr. */
@@ -41,6 +57,7 @@ export const configReport = {
   VITE_SUPABASE_ANON_KEY: key ? "gesetzt" : "fehlt",
   VITE_TEAM_EMAIL: TEAM_EMAIL,
   urlWert: url || null,
+  urlRoh: rawUrl && rawUrl !== url ? rawUrl : undefined,
   bereit: isConfigured,
   // Eigene VITE_-Variablen, die Vite tatsächlich eingebaut hat. Deckt Tippfehler
   // im Namen auf: fehlt eine erwartete, steht hier, wie sie wirklich heisst.
