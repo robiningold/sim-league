@@ -17,10 +17,11 @@ export const configReport = {
   VITE_SUPABASE_ANON_KEY: key ? "gesetzt" : "fehlt",
   VITE_TEAM_EMAIL: TEAM_EMAIL,
   bereit: isConfigured,
-  // Alle VITE_-Variablen, die Vite tatsächlich eingebaut hat. Deckt Tippfehler
+  // Eigene VITE_-Variablen, die Vite tatsächlich eingebaut hat. Deckt Tippfehler
   // im Namen auf: fehlt eine erwartete, steht hier, wie sie wirklich heisst.
+  // VITE_VERCEL_* spendiert Vercel von selbst und sagt nichts über die Konfiguration.
   imBuild: Object.keys(import.meta.env)
-    .filter((k) => k.startsWith("VITE_"))
+    .filter((k) => k.startsWith("VITE_") && !k.startsWith("VITE_VERCEL_"))
     .sort(),
 };
 
