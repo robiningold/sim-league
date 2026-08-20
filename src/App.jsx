@@ -171,6 +171,14 @@ export default function TicketRechner() {
   const fairColor = A.pct >= 0.28 && A.pct <= 0.45 ? EMER : (A.pct > 0.45 && A.pct <= 0.60) || (A.pct >= 0.18 && A.pct < 0.28) ? GOLD : ROSE;
   const overSticker = A.stickerMonth > A.revenue;
 
+  // Spieler-Sicht: was ein Ticket an Eintritt kostet, statt was es an Ware wert ist.
+  const avgTicketsPerPlayer = A.att > 0 ? A.tpe / A.att : 0;
+  const playerTicketCost = avgTicketsPerPlayer > 0 ? num(entry) / avgTicketsPerPlayer : 0;
+  const payback = A.revenue > 0 ? A.stickerMonth / A.revenue : 0;
+  const paybackColor = payback >= 0.6 ? EMER : payback >= 0.45 ? GOLD : ROSE;
+  // Wie viel Eintritt ein Ø-Spieler für einen Preis aufwendet, gemessen am Ladenpreis.
+  const effortRatio = wallCostPerTicket > 0 ? playerTicketCost / wallCostPerTicket : 0;
+
   const earnerTop = mode === "topx" ? num(t1) : num(rounds) * num(tPerWin);
   const earnerMid = mode === "topx" ? num(t58) : Math.round(num(rounds) / 2) * num(tPerWin);
 
@@ -321,6 +329,27 @@ export default function TicketRechner() {
                 </div>
               </Sec>
 
+              <Sec title="Spieler-Sicht" hint="Dieselbe Rechnung von der anderen Seite des Tisches.">
+                <Row label="Ø Tickets pro Spieler & Event" value={avgTicketsPerPlayer.toFixed(1) + " T"} />
+                <Row label="Ticketpreis für den Ø-Spieler" value={chf(playerTicketCost)} tone="n" />
+                <Row label="Ticketpreis für den Turniersieger" value={chf(earnerTop > 0 ? num(entry) / earnerTop : 0)} tone="p" />
+                <Row
+                  label="Ø-Spieler zahlt … × den Ladenpreis"
+                  value={effortRatio.toFixed(2).replace(".", ",") + " ×"}
+                  tone={effortRatio <= 1.5 ? "p" : effortRatio <= 2 ? "g" : "n"}
+                />
+                <Row label="Rückfluss an Spieler (Sticker ÷ Umsatz)" value={Math.round(payback * 100) + " %"} strong />
+                <div className="h-1.5 rounded-full bg-slate-800 mt-2 overflow-hidden">
+                  <div className="h-full rounded-full" style={{ width: Math.min(100, payback * 100) + "%", background: paybackColor }} />
+                </div>
+                <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
+                  Der Sticker-Wert ({chf(num(V))}) ist der Warenwert eines Tickets, nicht sein Preis. Verdient wird ein Ticket
+                  mit Eintritt: {chf(playerTicketCost)} für den Schnitt, {chf(earnerTop > 0 ? num(entry) / earnerTop : 0)} für
+                  den Turniersieger. Die Lücke ist eure Marge — plus der Event selbst, den der Eintritt ja auch bezahlt.
+                  Unter 45 % Rückfluss wird es für Spieler unattraktiv.
+                </p>
+              </Sec>
+
               <div className="rounded-xl border border-slate-800 p-4" style={{ background: CARD }}>
                 <h3 className="font-serif text-slate-200 mb-1">Gewinn nach Auslastung</h3>
                 <p className="text-[11px] text-slate-500 mb-2">Gold = aktuell ({num(fill)} %). Rot = Break-even.</p>
@@ -354,9 +383,9 @@ export default function TicketRechner() {
                 <button onClick={addRow} className="rounded px-3 py-1.5 text-[13px] font-medium border" style={{ borderColor: GOLD, color: GOLD }}>+ Produkt</button>
               </div>
             </div>
-            <p className="text-[11px] text-slate-500 mb-3">Namen, Ticket-Preise und CHF-Kosten frei anpassen. „K/Ticket“ grün = nah am Sticker-Wert; die Startpreise liegen {Math.round((MARKUP - 1) * 100)} % über dem 1:1-Wert. Grind = Events als {mode === "topx" ? "1. / 5.–8." : "Sieger / 50%-Spieler"}.</p>
+            <p className="text-[11px] text-slate-500 mb-3">Namen, Ticket-Preise und CHF-Kosten frei anpassen. „K/Ticket“ grün = nah am Sticker-Wert; die Startpreise liegen {Math.round((MARKUP - 1) * 100)} % über dem 1:1-Wert. Grind = Events als {mode === "topx" ? "1. / 5.–8." : "Sieger / 50%-Spieler"}. „Ø zahlt“ = was ein Durchschnittsspieler an Eintritt investiert, um den Preis zu holen.</p>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] text-[13px]">
+              <table className="w-full min-w-[660px] text-[13px]">
                 <thead>
                   <tr className="text-[11px] text-slate-500 uppercase tracking-wider border-b border-slate-700">
                     <th className="text-left pb-1 font-normal">Preis</th>
@@ -365,6 +394,7 @@ export default function TicketRechner() {
                     <th className="text-right pb-1 font-normal">CHF-Wert</th>
                     <th className="text-right pb-1 font-normal">K/Ticket</th>
                     <th className="text-right pb-1 font-normal">Grind</th>
+                    <th className="text-right pb-1 font-normal">Ø zahlt</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -386,6 +416,9 @@ export default function TicketRechner() {
                         <td className="py-1.5 text-right font-mono" style={{ color: cc }}>{chf(cpt)}</td>
                         <td className="py-1.5 text-right font-mono text-slate-400">
                           {earnerTop > 0 ? Math.ceil(num(r.tickets) / earnerTop) : "—"}/{earnerMid > 0 ? Math.ceil(num(r.tickets) / earnerMid) : "—"}
+                        </td>
+                        <td className="py-1.5 text-right font-mono text-slate-400">
+                          {chf0(num(r.tickets) * playerTicketCost)}
                         </td>
                         <td className="py-1.5 text-right">
                           <button onClick={() => delRow(r.id)} className="text-slate-600 hover:text-rose-400 px-1">✕</button>
@@ -443,6 +476,8 @@ export default function TicketRechner() {
               ["Netto-Gewinn / Monat", chf0(A.profit)],
               ["Pro Kopf / Monat (÷" + num(team) + ")", chf0(perPersonMonth)],
               ["Preis-Anteil (real)", Math.round(A.pct * 100) + " %"],
+              ["Ticketpreis für den Ø-Spieler", chf(playerTicketCost)],
+              ["Rückfluss an Spieler", Math.round(payback * 100) + " %"],
             ].map(([k, v], i) => (
               <tr key={k} style={{ fontWeight: i >= 5 ? 700 : 400 }}>
                 <td style={{ padding: "3px 0", color: "#555" }}>{k}</td>
