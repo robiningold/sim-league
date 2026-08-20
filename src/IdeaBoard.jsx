@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useBoardSync, useSession } from "./lib/useBoardSync";
 import { uploadImage } from "./lib/boardApi";
-import { configReport, isConfigured } from "./lib/supabase";
 
 const GOLD = "#E0A83B";
 const CARD = "#0f2636";
@@ -177,7 +176,6 @@ export default function IdeaBoard() {
   const [linkFrom, setLinkFrom] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [warn, setWarn] = useState(null);
-  const [hintClosed, setHintClosed] = useState(false);
   const wrap = useRef(null);
   const imgInput = useRef(null);
   const { session } = useSession();
@@ -512,37 +510,8 @@ export default function IdeaBoard() {
         </div>
       </div>
 
-      {!isConfigured && !hintClosed && (
-        <div className="pointer-events-none absolute left-2 right-2 top-14 z-20 max-w-lg sm:left-3 sm:right-auto sm:top-16">
-          <div
-            className="rounded-lg border px-3 py-2 text-[12px] leading-relaxed"
-            style={{ borderColor: "rgba(224,168,59,0.4)", background: "rgba(11,31,46,0.96)", color: GOLD }}
-          >
-            <div className="flex items-start gap-3">
-              <p className="flex-1">
-                Board nur in diesem Browser — niemand sonst sieht es.{" "}
-                <b>VITE_SUPABASE_URL {configReport.VITE_SUPABASE_URL}</b>,{" "}
-                <b>VITE_SUPABASE_ANON_KEY {configReport.VITE_SUPABASE_ANON_KEY}</b>.
-              </p>
-              <button
-                onClick={() => setHintClosed(true)}
-                className="pointer-events-auto -m-2 p-2 opacity-60 hover:opacity-100"
-                aria-label="Hinweis schliessen"
-              >
-                ✕
-              </button>
-            </div>
-            <p className="mt-1.5 text-slate-400">
-              Eigene Variablen im Build:{" "}
-              {configReport.imBuild.length ? configReport.imBuild.join(" · ") : "keine"}
-              {" — "}steht die gesuchte hier unter anderem Namen, ist es ein Tippfehler in Vercel.
-            </p>
-          </div>
-        </div>
-      )}
-
       {(linkMode || warn) && (
-        <div className="pointer-events-none absolute left-3 z-20 max-w-lg" style={{ top: isConfigured || hintClosed ? "4rem" : "9.5rem" }}>
+        <div className="pointer-events-none absolute left-3 z-20 max-w-lg" style={{ top: "4rem" }}>
           {linkMode && (
             <p className="rounded-lg border px-3 py-1.5 text-[12px]" style={{ borderColor: "rgba(224,168,59,0.4)", background: "rgba(224,168,59,0.1)", color: GOLD }}>
               {linkFrom ? "Zweites Element anklicken." : "Erstes Element anklicken. Ein Pfeil verschwindet per Klick darauf."}
