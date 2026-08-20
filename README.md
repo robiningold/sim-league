@@ -41,13 +41,29 @@ braucht die App keine.
 
 ## Weiterbauen
 
-Die ganze App steckt in `src/App.jsx`:
+```
+src/App.jsx           Menü und Seitenwechsel
+src/TicketRechner.jsx Prize-Wall-Rechner
+src/IdeaBoard.jsx     Idea Dump
+```
 
-- `DISPLAYS` — die Set-Displays mit ihrem CHF-Preis (Cardmarket-Preistrend, auf 5 aufgerundet).
-  Neue Sets hier eintragen, sie landen automatisch im Dropdown und in der Start-Wall.
-- `CATALOG` — alle Produkte fürs „+ Produkt“-Dropdown. Ticket-Preise der Displays werden
-  über `PEG` (CHF pro Ticket) aus den Kosten abgeleitet
-- `defaultWall()` — die Prize Wall beim Start
-- `calc()` — die komplette Monatsrechnung (Umsatz, Tickets, Kosten, Gebühren, Gewinn)
+Im Rechner (`src/TicketRechner.jsx`):
+
+- `DISPLAYS` — die Set-Displays mit ihrem CHF-Einkaufspreis. Neue Sets hier eintragen,
+  sie landen automatisch im Dropdown und in der Start-Wall.
+- `PEG` und `MARKUP_START` — Ticket-Wert und Wall-Aufschlag beim Start; im UI sind beide
+  Regler, die die ganze Wall live neu bepreisen.
+- `TIERS` und `TIER_START` — Auszahlungsstufen für Top X
+- `calc()` — die komplette Monatsrechnung
 
 Anpassen, committen, pushen → live.
+
+## Idea Dump
+
+Ein Board für Ideen im Team: Notizen anlegen, beschriften, verschieben, einfärben,
+gruppieren und mit Pfeilen verbinden. Bilder lassen sich aufs Board ziehen oder mit
+Strg+V einfügen; sie werden beim Import auf 900 px verkleinert, damit der Speicher reicht.
+
+Das Board liegt im `localStorage` des Browsers (`op-liga-ideas:v1`) — **jeder sieht nur
+sein eigenes Board**. Zum Teilen gibt es Export und Import als JSON. Ein gemeinsames Board
+für alle bräuchte ein Backend (z. B. Supabase).
