@@ -57,8 +57,9 @@ const Row = ({ label, value, tone = "d", strong }) => {
 
 // Displaypreise = Cardmarket-Preistrend, auf 5 CHF aufgerundet (Stand: August 2026).
 // Ticket-Preise werden daraus mit dem Peg unten abgeleitet — im UI jederzeit überschreibbar.
-const PEG = 5; // CHF Sticker-Wert pro Ticket
-const tix = (cost) => Math.round(cost / PEG);
+const PEG = 2.5;      // CHF Sticker-Wert pro Ticket (= Default von V unten)
+const MARKUP = 1.07;  // Wall-Aufschlag: ein Preis kostet 7 % mehr Tickets, als er wert ist
+const tix = (cost) => Math.ceil((cost / PEG) * MARKUP);
 
 const DISPLAYS = [
   ["OP-07", 230],
@@ -107,10 +108,10 @@ export default function TicketRechner() {
   const [capacity, setCapacity] = useState(64);
   const [fill, setFill] = useState(70);
   const [tpw, setTpw] = useState(1);
-  const [rounds, setRounds] = useState(6);
+  const [rounds, setRounds] = useState(5);
   const [entry, setEntry] = useState(10);
-  const [V, setV] = useState(5);        // Ticket-Wert (Sticker)
-  const [RC, setRC] = useState(1.5);    // reale Kosten pro Ticket
+  const [V, setV] = useState(PEG);      // Ticket-Wert (Sticker)
+  const [physShare, setPhysShare] = useState(80); // % der Tickets, die für physische Preise draufgehen
   const [mode, setMode] = useState("win");
   const [t1, setT1] = useState(70);
   const [t2, setT2] = useState(45);
@@ -127,6 +128,21 @@ export default function TicketRechner() {
   const setWF = (id, f, v) => setWall((w) => w.map((r) => (r.id === id ? { ...r, [f]: v } : r)));
   const delRow = (id) => setWall((w) => w.filter((r) => r.id !== id));
   const addRow = () => setWall((w) => [...w, fromCatalog(pick)]);
+
+  // Was uns ein Ticket wirklich kostet: Einkaufspreise der Wall auf ihre Tickets umgelegt.
+  // Preise ohne Kosten (Icon, Title, Banner, Custom) zählen nicht mit — sie sind gratis für uns.
+  const wallCostPerTicket = useMemo(() => {
+    let cost = 0, tickets = 0;
+    for (const r of wall) {
+      if (num(r.cost) <= 0 || num(r.tickets) <= 0) continue;
+      cost += num(r.cost);
+      tickets += num(r.tickets);
+    }
+    return tickets > 0 ? cost / tickets : 0;
+  }, [wall]);
+  // Nur der Teil, der für physische Preise eingelöst wird, kostet uns etwas. Der Rest geht in
+  // digitale Preise oder wird nie eingelöst (Breakage, Drops) — beides gratis für uns.
+  const RC = wallCostPerTicket * num(physShare) / 100;
 
   const eventsPerMonth = num(tpw) * 4;
   const topXTickets = num(t1) + num(t2) + 2 * num(t34) + 4 * num(t58);
@@ -150,11 +166,6 @@ export default function TicketRechner() {
   const cTop = useMemo(() => calc(num(fill), "topx"), dep);
   const cWin = useMemo(() => calc(num(fill), "win"), dep);
   const perPersonMonth = A.profit / Math.max(1, num(team));
-
-  const avgCostPerTicket = useMemo(() => {
-    const vals = wall.filter((r) => num(r.tickets) > 0).map((r) => num(r.cost) / num(r.tickets));
-    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
-  }, [wall]);
 
   const fairColor = A.pct >= 0.28 && A.pct <= 0.45 ? EMER : (A.pct > 0.45 && A.pct <= 0.60) || (A.pct >= 0.18 && A.pct < 0.28) ? GOLD : ROSE;
   const overSticker = A.stickerMonth > A.revenue;
@@ -263,9 +274,16 @@ export default function TicketRechner() {
                 <NumField label="Runden pro Event" value={rounds} min={3} max={12} step={1} onChange={setRounds} suffix="Rd" />
                 <NumField label="Ticketpreis (Eintritt)" value={entry} min={0} max={40} step={1} onChange={setEntry} suffix="CHF" />
               </Sec>
-              <Sec title="Ticket-Werte" hint={"Sticker = was Spieler sehen. Reale Kosten = was uns ein Ticket wirklich kostet (Wall-Ø: " + chf(avgCostPerTicket) + ")."}>
-                <NumField label="Ticket-Wert (Sticker)" value={V} min={0.5} max={10} step={0.5} onChange={setV} suffix="CHF" />
-                <NumField label="Reale Kosten / Ticket" value={RC} min={0} max={5} step={0.25} onChange={setRC} suffix="CHF" />
+              <Sec title="Ticket-Werte" hint="Sticker-Wert = was ein Ticket für Spieler wert ist. Was es uns kostet, kommt aus der Prize Wall — nichts zum Raten.">
+                <NumField label="Ticket-Wert (Sticker)" value={V} min={0.5} max={10} step={0.25} onChange={setV} suffix="CHF" />
+                <NumField label="Tickets für physische Preise" value={physShare} min={0} max={100} step={5} onChange={setPhysShare} suffix="%" />
+                <Row label="Ø Einkauf / Ticket (Wall)" value={chf(wallCostPerTicket)} />
+                <Row label="Reale Kosten / Ticket" value={chf(RC)} tone="g" strong />
+                <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
+                  Ein Display für {chf(230)} zu {tix(230)} Tickets kostet uns {chf(230 / tix(230))} pro Ticket — das ist der
+                  Wall-Ø. Davon zahlen wir nur den Anteil, der für physische Preise eingelöst wird; digitale Preise und
+                  nie eingelöste Tickets (Breakage, Drops) kosten nichts. Break-even liegt bei {chf(A.ticketsMonth > 0 ? (A.revenue - A.fees - num(fixedM)) / A.ticketsMonth : 0)} pro Ticket.
+                </p>
               </Sec>
 
               {mode === "topx" ? (
@@ -335,7 +353,7 @@ export default function TicketRechner() {
                 <button onClick={addRow} className="rounded px-3 py-1.5 text-[13px] font-medium border" style={{ borderColor: GOLD, color: GOLD }}>+ Produkt</button>
               </div>
             </div>
-            <p className="text-[11px] text-slate-500 mb-3">Namen, Ticket-Preise und CHF-Kosten frei anpassen. „K/Ticket" grün = nah am Sticker-Wert. Grind = Events als {mode === "topx" ? "1. / 5.–8." : "Sieger / 50%-Spieler"}.</p>
+            <p className="text-[11px] text-slate-500 mb-3">Namen, Ticket-Preise und CHF-Kosten frei anpassen. „K/Ticket“ grün = nah am Sticker-Wert; die Startpreise liegen {Math.round((MARKUP - 1) * 100)} % über dem 1:1-Wert. Grind = Events als {mode === "topx" ? "1. / 5.–8." : "Sieger / 50%-Spieler"}.</p>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-[13px]">
                 <thead>
@@ -352,7 +370,9 @@ export default function TicketRechner() {
                 <tbody>
                   {wall.map((r) => {
                     const cpt = num(r.tickets) > 0 ? num(r.cost) / num(r.tickets) : 0;
-                    const cc = Math.abs(cpt - num(V)) <= num(V) * 0.15 ? EMER : Math.abs(cpt - num(V)) <= num(V) * 0.4 ? GOLD : ROSE;
+                    const cc = num(r.cost) <= 0 ? "#64748b"
+                      : Math.abs(cpt - num(V)) <= num(V) * 0.15 ? EMER
+                      : Math.abs(cpt - num(V)) <= num(V) * 0.4 ? GOLD : ROSE;
                     return (
                       <tr key={r.id} className="border-b border-slate-800">
                         <td className="py-1.5 pr-2">
@@ -376,14 +396,15 @@ export default function TicketRechner() {
               </table>
             </div>
             <div className="flex justify-between pt-3 text-[13px]">
-              <span className="text-slate-400">Ø Kosten/Ticket der Wall · {wall.length} Produkte</span>
-              <span className="font-mono" style={{ color: GOLD }}>{chf(avgCostPerTicket)}</span>
+              <span className="text-slate-400">Ø Einkauf/Ticket (physische Preise) · {wall.length} Produkte</span>
+              <span className="font-mono" style={{ color: GOLD }}>{chf(wallCostPerTicket)}</span>
             </div>
           </div>
 
           <p className="text-[11px] text-slate-600 mt-4 leading-relaxed">
             Digitale Preise (Icon, Title, Banner) kosten fast nichts und sind die margenstärksten Wall-Items — ideal fürs Spielerprofil.
-            Nicht eingerechnet: Breakage (nie eingelöste Tickets) = zusätzliche Marge.
+            Breakage und Drops stecken im Regler „Tickets für physische Preise“: was nicht physisch eingelöst wird,
+            kostet uns nichts. Wer droppt, hat den Eintritt bezahlt und holt keine Tickets mehr ab — reine Marge.
           </p>
         </div>
       </div>
