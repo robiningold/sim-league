@@ -15,17 +15,18 @@ export default function App() {
   const active = PAGES.find((p) => p.id === page);
 
   return (
-    <div className="min-h-screen w-full" style={{ background: SEA }}>
+    <div className="app-shell h-screen flex flex-col" style={{ background: SEA }}>
       <style>{`
         input, select, textarea { font-size: 16px; }
         @media screen { .print-only { display: none; } }
         @media print {
           .no-print { display: none !important; }
           .print-only { display: block !important; }
+          html, body, #root, .app-shell, .app-main { height: auto !important; overflow: visible !important; }
         }
       `}</style>
 
-      <header className="no-print border-b border-slate-800/80">
+      <header className="no-print shrink-0 border-b border-slate-800/80">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center gap-x-6 gap-y-2">
           <span className="font-serif text-slate-100">OP TCG Liga</span>
           <nav className="flex gap-1">
@@ -49,15 +50,9 @@ export default function App() {
         </div>
       </header>
 
-      <div className={page === "rechner" ? "" : "no-print"}>
-        {page === "rechner" ? (
-          <TicketRechner />
-        ) : (
-          <div className="max-w-6xl mx-auto p-4 sm:p-6">
-            <IdeaBoard />
-          </div>
-        )}
-      </div>
+      <main className={`app-main flex-1 min-h-0 ${page === "rechner" ? "overflow-y-auto" : "no-print overflow-hidden"}`}>
+        {page === "rechner" ? <TicketRechner /> : <IdeaBoard />}
+      </main>
     </div>
   );
 }
