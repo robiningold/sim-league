@@ -43,7 +43,10 @@ braucht die App keine.
 
 Die ganze App steckt in `src/App.jsx`:
 
-- `CATALOG` — Produkte fürs „+ Produkt“-Dropdown samt Ticket-/CHF-Defaults
+- `DISPLAYS` — die Set-Displays mit ihrem CHF-Preis (Cardmarket-Preistrend, auf 5 aufgerundet).
+  Neue Sets hier eintragen, sie landen automatisch im Dropdown und in der Start-Wall.
+- `CATALOG` — alle Produkte fürs „+ Produkt“-Dropdown. Ticket-Preise der Displays werden
+  über `PEG` (CHF pro Ticket) aus den Kosten abgeleitet
 - `defaultWall()` — die Prize Wall beim Start
 - `calc()` — die komplette Monatsrechnung (Umsatz, Tickets, Kosten, Gebühren, Gewinn)
 

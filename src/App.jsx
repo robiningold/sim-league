@@ -55,13 +55,34 @@ const Row = ({ label, value, tone = "d", strong }) => {
   );
 };
 
-// Katalog für Add-Product (Ticket / CHF-Kosten Defaults, Peg ~5)
+// Displaypreise = Cardmarket-Preistrend, auf 5 CHF aufgerundet (Stand: August 2026).
+// Ticket-Preise werden daraus mit dem Peg unten abgeleitet — im UI jederzeit überschreibbar.
+const PEG = 5; // CHF Sticker-Wert pro Ticket
+const tix = (cost) => Math.round(cost / PEG);
+
+const DISPLAYS = [
+  ["OP-07", 230],
+  ["OP-08", 180],
+  ["OP-10", 180],
+  ["OP-12", 220],
+  ["OP-13", 400],
+  ["OP-14", 160],
+  ["OP-15", 220],
+  ["OP-16", 170],
+  ["OP-17", 400],
+  ["EB-03", 250],
+  ["PRB-02", 250],
+];
+
+// Katalog für Add-Product (Ticket / CHF-Kosten Defaults)
 const CATALOG = {
-  "Display": { tickets: 20, cost: 95, digital: false },
+  ...Object.fromEntries(DISPLAYS.map(([set, cost]) => [
+    "Display " + set, { tickets: tix(cost), cost, digital: false },
+  ])),
   "Manga Card": { tickets: 40, cost: 170, digital: false },
   "Alt Art": { tickets: 18, cost: 75, digital: false },
-  "Sleeves": { tickets: 4, cost: 15, digital: false },
-  "Playmat": { tickets: 7, cost: 30, digital: false },
+  "Sleeves": { tickets: tix(12), cost: 12, digital: false },
+  "Playmat": { tickets: tix(30), cost: 30, digital: false },
   "Profile Icon": { tickets: 3, cost: 0, digital: true },
   "Title": { tickets: 5, cost: 0, digital: true },
   "Banner": { tickets: 8, cost: 0, digital: true },
@@ -70,18 +91,17 @@ const CATALOG = {
 
 let ID = 1;
 const mk = (name, tickets, cost) => ({ id: ID++, name, tickets, cost });
+const fromCatalog = (name) => mk(name, CATALOG[name].tickets, CATALOG[name].cost);
 
-const defaultWall = () => {
-  const rows = [];
-  for (let i = 1; i <= 18; i++) rows.push(mk("Display " + String(i).padStart(2, "0"), 20, 95));
-  rows.push(mk("Custom Produkt", 10, 0));
-  rows.push(mk("Sleeves", 4, 15));
-  rows.push(mk("Playmat", 7, 30));
-  rows.push(mk("Profile Icon", 3, 0));
-  rows.push(mk("Title", 5, 0));
-  rows.push(mk("Banner", 8, 0));
-  return rows;
-};
+const defaultWall = () => [
+  ...DISPLAYS.map(([set]) => fromCatalog("Display " + set)),
+  fromCatalog("Custom Produkt"),
+  fromCatalog("Sleeves"),
+  fromCatalog("Playmat"),
+  fromCatalog("Profile Icon"),
+  fromCatalog("Title"),
+  fromCatalog("Banner"),
+];
 
 export default function TicketRechner() {
   const [capacity, setCapacity] = useState(64);
@@ -98,7 +118,7 @@ export default function TicketRechner() {
   const [t58, setT58] = useState(16);
   const [tPerWin, setTPerWin] = useState(1);
   const [wall, setWall] = useState(defaultWall);
-  const [pick, setPick] = useState("Display");
+  const [pick, setPick] = useState("Display OP-07");
   const [fixedM, setFixedM] = useState(110);
   const [feePct, setFeePct] = useState(3);
   const [perTk, setPerTk] = useState(0.3);
@@ -106,15 +126,7 @@ export default function TicketRechner() {
 
   const setWF = (id, f, v) => setWall((w) => w.map((r) => (r.id === id ? { ...r, [f]: v } : r)));
   const delRow = (id) => setWall((w) => w.filter((r) => r.id !== id));
-  const addRow = () => {
-    const c = CATALOG[pick];
-    let name = pick;
-    if (pick === "Display") {
-      const n = wall.filter((r) => r.name.startsWith("Display")).length + 1;
-      name = "Display " + String(n).padStart(2, "0");
-    }
-    setWall((w) => [...w, mk(name, c.tickets, c.cost)]);
-  };
+  const addRow = () => setWall((w) => [...w, fromCatalog(pick)]);
 
   const eventsPerMonth = num(tpw) * 4;
   const topXTickets = num(t1) + num(t2) + 2 * num(t34) + 4 * num(t58);
