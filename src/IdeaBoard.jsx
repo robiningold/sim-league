@@ -1,4 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useBoardSync, useSession } from "./lib/useBoardSync";
+import { uploadImage } from "./lib/boardApi";
+import { signOut } from "./lib/supabase";
 
 const GOLD = "#E0A83B";
 const CARD = "#0f2636";
@@ -147,6 +150,21 @@ const Tool = ({ active, danger, children, ...props }) => (
 
 const Divider = () => <span className="h-5 w-px bg-slate-700 mx-0.5" />;
 
+const SYNC_LABEL = {
+  local: "nur in diesem Browser",
+  off: "nicht angemeldet",
+  connecting: "verbindet …",
+  live: "live · alle sehen dasselbe",
+  saving: "speichert …",
+  error: "Sync-Fehler",
+};
+const SYNC_COLOR = {
+  local: "#8ba0b3",
+  live: "#34d399",
+  saving: "#E0A83B",
+  error: "#fb7185",
+};
+
 export default function IdeaBoard() {
   const initial = useRef(load()).current;
   const [elements, setElements] = useState(initial.elements);
@@ -161,15 +179,25 @@ export default function IdeaBoard() {
   const [warn, setWarn] = useState(null);
   const wrap = useRef(null);
   const imgInput = useRef(null);
+  const { session } = useSession();
 
+  const setBoard = useCallback((b) => {
+    setElements(b.elements.map(inBounds));
+    setLinks(b.links);
+    setGroups(b.groups);
+  }, []);
+  const sync = useBoardSync({ elements, links, groups }, setBoard, session);
+
+  // Lokale Kopie bleibt immer bestehen — als Zwischenspeicher und für den Offline-Fall.
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE, JSON.stringify({ elements, links, groups }));
       setWarn(null);
     } catch {
-      setWarn("Speicher voll — exportiere das Board und entferne ein paar Bilder.");
+      // Mit Supabase liegen die Bilder auf dem Server, dann ist der lokale Speicher nur Beiwerk.
+      setWarn(sync.remote ? null : "Speicher voll — exportiere das Board und entferne ein paar Bilder.");
     }
-  }, [elements, links, groups]);
+  }, [elements, links, groups, sync.remote]);
 
   const open = elements.find((e) => e.id === openId) || null;
   const selected = elements.filter((e) => sel.includes(e.id));
@@ -194,8 +222,16 @@ export default function IdeaBoard() {
     const srcs = [];
     for (const file of files) {
       if (!file.type.startsWith("image/")) continue;
-      const src = await readImage(file);
-      if (src) srcs.push(src);
+      let src = await readImage(file);
+      if (!src) continue;
+      if (sync.remote) {
+        try {
+          src = await uploadImage(src);
+        } catch (e) {
+          setWarn("Bild-Upload fehlgeschlagen, es liegt vorerst nur lokal: " + (e.message || e));
+        }
+      }
+      srcs.push(src);
     }
     if (srcs.length === 0) return null;
     if (target) {
@@ -406,6 +442,7 @@ export default function IdeaBoard() {
         <div className="ml-auto flex items-center gap-2">
           <Tool onClick={fitAll}>Alles zeigen</Tool>
           <Tool onClick={() => setView(clampView({ x: 0, y: 0, z: 1 }, wrap.current.getBoundingClientRect()))}>100 %</Tool>
+          {session && <Tool onClick={() => void signOut()}>Abmelden</Tool>}
           <Tool onClick={exportBoard}>Export</Tool>
           <label
             className="rounded-lg px-3 py-1.5 text-[13px] font-medium border cursor-pointer whitespace-nowrap"
@@ -573,8 +610,12 @@ export default function IdeaBoard() {
           })}
         </div>
 
-        <div className="absolute bottom-3 rounded-lg bg-black/45 px-2.5 py-1 text-[11px] text-slate-400" style={{ right: open ? "23rem" : "0.75rem" }}>
-          {elements.length} Elemente · {links.length} Verbindungen · {Math.round(view.z * 100)} %
+        <div className="absolute bottom-3 flex items-center gap-2 rounded-lg bg-black/45 px-2.5 py-1 text-[11px] text-slate-400" style={{ right: open ? "23rem" : "0.75rem" }}>
+          <span>{elements.length} Elemente · {links.length} Verbindungen · {Math.round(view.z * 100)} %</span>
+          <span className="h-3 w-px bg-slate-700" />
+          <span style={{ color: SYNC_COLOR[sync.status] || "#8ba0b3" }} title={sync.error || ""}>
+            {SYNC_LABEL[sync.status] || sync.status}
+          </span>
         </div>
         <p className="pointer-events-none absolute bottom-3 left-3 max-w-[26rem] text-[11px] leading-relaxed text-slate-600">
           Kopfzeile ziehen verschiebt · Ecke unten rechts ändert die Grösse · Shift-Klick wählt mehrere · Mausrad zoomt ·

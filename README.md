@@ -60,10 +60,42 @@ Anpassen, committen, pushen → live.
 
 ## Idea Dump
 
-Ein Board für Ideen im Team: Notizen anlegen, beschriften, verschieben, einfärben,
-gruppieren und mit Pfeilen verbinden. Bilder lassen sich aufs Board ziehen oder mit
-Strg+V einfügen; sie werden beim Import auf 900 px verkleinert, damit der Speicher reicht.
+Ein Board für Ideen im Team: Elemente mit Titel, Beschreibung, Stichpunkten und Bildern
+anlegen, verschieben, in der Grösse ändern, einfärben, gruppieren und mit Pfeilen
+verbinden. Ein Klick öffnet rechts das Detailpanel. Die Arbeitsfläche ist 4000 × 2600
+Einheiten gross; Elemente und Ansicht bleiben darin, es kann also nichts hinter dem Rand
+verschwinden.
 
-Das Board liegt im `localStorage` des Browsers (`op-liga-ideas:v1`) — **jeder sieht nur
-sein eigenes Board**. Zum Teilen gibt es Export und Import als JSON. Ein gemeinsames Board
-für alle bräuchte ein Backend (z. B. Supabase).
+### Ohne Supabase
+
+Läuft die App ohne die Keys unten, liegt das Board im `localStorage` des Browsers
+(`op-liga-ideas:v2`) — jeder sieht nur sein eigenes. Export und Import als JSON sind der
+einzige Weg zum Teilen.
+
+### Mit Supabase — gemeinsames Board für alle
+
+1. **Schema anlegen**: Inhalt von `supabase/schema.sql` im Supabase SQL Editor ausführen.
+   Das legt die Tabellen, die Zugriffsregeln, Realtime und den Bilder-Bucket an.
+2. **Liga-Konto anlegen**: Supabase → Authentication → Users → *Add user*, E-Mail
+   `team@sim-league.app`, Passwort nach Wahl, **Auto Confirm User** aktivieren.
+   Alle im Team benutzen dieses eine Konto; in der App wird nur das Passwort abgefragt.
+3. **Keys setzen**, lokal in einer `.env` und in Vercel unter Environment Variables:
+
+   ```
+   VITE_SUPABASE_URL=https://xxxx.supabase.co
+   VITE_SUPABASE_ANON_KEY=eyJ...
+   VITE_TEAM_EMAIL=team@sim-league.app
+   ```
+
+Danach fragt der Idea Dump beim Öffnen nach dem Passwort und synchronisiert live: jede
+Änderung landet über Supabase Realtime sofort bei allen offenen Browsern. Bilder gehen in
+den Storage statt in den Browserspeicher, das 5-MB-Limit entfällt.
+
+Beim ersten Start mit leerem Server wird ein vorhandenes lokales Board **hochgeladen**
+statt überschrieben — euer bisheriger Stand wandert also einmalig mit.
+
+Der anon-Key darf öffentlich sein: ohne Anmeldung geben die Zugriffsregeln nichts heraus.
+Bilder im Bucket sind über ihre zufällige URL öffentlich lesbar.
+
+Bei gleichzeitigem Bearbeiten gewinnt die letzte Änderung pro Element. Eigene, noch nicht
+hochgeladene Änderungen werden nicht von fremden überschrieben — sie gehen zuerst raus.

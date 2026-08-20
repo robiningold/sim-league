@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import TicketRechner from "./TicketRechner.jsx";
 import IdeaBoard from "./IdeaBoard.jsx";
+import BoardGate from "./BoardGate.jsx";
 
 const GOLD = "#E0A83B";
 const SEA = "#0B1F2E";
@@ -51,7 +52,13 @@ export default function App() {
       </header>
 
       <main className={`app-main flex-1 min-h-0 ${page === "rechner" ? "overflow-y-auto" : "no-print overflow-hidden"}`}>
-        {page === "rechner" ? <TicketRechner /> : <IdeaBoard />}
+        {page === "rechner" ? (
+          <TicketRechner />
+        ) : (
+          <BoardGate>
+            <IdeaBoard />
+          </BoardGate>
+        )}
       </main>
     </div>
   );
