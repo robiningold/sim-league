@@ -469,8 +469,12 @@ export default function IdeaBoard() {
              style={{ borderColor: "rgba(224,168,59,0.4)", background: "rgba(224,168,59,0.1)", color: GOLD }}>
             Dieses Board liegt nur in diesem Browser — niemand sonst sieht es. Für das gemeinsame Board fehlen im Build:
             {" "}<b>VITE_SUPABASE_URL {configReport.VITE_SUPABASE_URL}</b>,{" "}
-            <b>VITE_SUPABASE_ANON_KEY {configReport.VITE_SUPABASE_ANON_KEY}</b>. In Vercel setzen und neu deployen —
-            ohne Build-Cache, sonst greifen sie nicht.
+            <b>VITE_SUPABASE_ANON_KEY {configReport.VITE_SUPABASE_ANON_KEY}</b>.
+            <br />
+            Im Build vorhanden:{" "}
+            <b>{configReport.imBuild.length ? configReport.imBuild.join(", ") : "keine einzige VITE_-Variable"}</b>.
+            Steht die gesuchte hier unter anderem Namen, ist es ein Tippfehler in Vercel. Nach dem Korrigieren neu
+            deployen, ohne Build-Cache.
           </p>
         </div>
       )}

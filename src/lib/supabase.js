@@ -17,6 +17,11 @@ export const configReport = {
   VITE_SUPABASE_ANON_KEY: key ? "gesetzt" : "fehlt",
   VITE_TEAM_EMAIL: TEAM_EMAIL,
   bereit: isConfigured,
+  // Alle VITE_-Variablen, die Vite tatsächlich eingebaut hat. Deckt Tippfehler
+  // im Namen auf: fehlt eine erwartete, steht hier, wie sie wirklich heisst.
+  imBuild: Object.keys(import.meta.env)
+    .filter((k) => k.startsWith("VITE_"))
+    .sort(),
 };
 
 // Damit man im Browser mit einem Wort nachsehen kann: window.liga
