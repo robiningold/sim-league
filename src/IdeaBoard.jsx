@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useBoardSync, useSession } from "./lib/useBoardSync";
 import { uploadImage } from "./lib/boardApi";
-import { configReport, isConfigured, signOut } from "./lib/supabase";
+import { configReport, isConfigured } from "./lib/supabase";
 
 const GOLD = "#E0A83B";
 const CARD = "#0f2636";
@@ -492,7 +492,6 @@ export default function IdeaBoard() {
         <div className="ml-auto flex items-center gap-2">
           <Tool onClick={fitAll}>Alles zeigen</Tool>
           <Tool onClick={() => setView(clampView({ x: 0, y: 0, z: 1 }, wrap.current.getBoundingClientRect()))}>100 %</Tool>
-          {session && <Tool onClick={() => void signOut()}>Abmelden</Tool>}
           <Tool onClick={exportBoard}>Export</Tool>
           <label
             className="rounded-lg px-3 py-1.5 text-[13px] font-medium border cursor-pointer whitespace-nowrap"

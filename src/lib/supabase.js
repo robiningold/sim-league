@@ -25,7 +25,18 @@ export const BOARD_ID = "main";
 
 /** Ohne Keys läuft die App wie bisher rein lokal weiter. */
 export const isConfigured = Boolean(url && key);
-export const supabase = isConfigured ? createClient(url, key) : null;
+export const supabase = isConfigured
+  ? createClient(url, key, {
+      auth: {
+        // Anmeldung überdauert Reload und Neustart; das Token wird im
+        // Hintergrund erneuert, damit niemand ständig neu tippen muss.
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+        storageKey: "sim-league-auth",
+      },
+    })
+  : null;
 
 /**
  * Die Project URL muss die blanke Projektadresse sein. Hängt ein Pfad dran —

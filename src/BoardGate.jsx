@@ -5,7 +5,7 @@ import { useSession } from "./lib/useBoardSync";
 const GOLD = "#E0A83B";
 const CARD = "#12293c";
 
-/** Passwortschranke vor dem Idea Dump. Ohne Supabase-Keys läuft alles lokal weiter. */
+/** Passwortschranke vor der ganzen Seite. Ohne Supabase-Keys läuft alles lokal weiter. */
 export default function BoardGate({ children }) {
   const { session, ready } = useSession();
   const [password, setPassword] = useState("");
@@ -15,7 +15,7 @@ export default function BoardGate({ children }) {
   if (!isConfigured || session) return children;
 
   if (!ready) {
-    return <div className="grid h-full place-items-center text-[13px] text-slate-500">Verbindung wird geprüft …</div>;
+    return <div className="flex flex-1 items-center justify-center text-[13px] text-slate-500">Verbindung wird geprüft …</div>;
   }
 
   async function submit(e) {
@@ -37,14 +37,15 @@ export default function BoardGate({ children }) {
   }
 
   return (
-    <div className="grid h-full place-items-center p-6">
+    <div className="flex flex-1 items-center justify-center p-6">
       <form onSubmit={submit} className="w-full max-w-sm rounded-2xl border border-slate-800 p-6" style={{ background: CARD }}>
         <p className="font-mono text-[11px] uppercase tracking-[0.25em]" style={{ color: GOLD }}>
-          Idea Dump
+          OP TCG Liga
         </p>
         <h2 className="mt-1 font-serif text-xl text-slate-100">Liga-Passwort</h2>
         <p className="mt-2 text-[13px] leading-relaxed text-slate-400">
-          Das Board ist für alle im Team gemeinsam. Ein Passwort für die ganze Liga.
+          Ein Passwort für die ganze Liga. Die Anmeldung bleibt in diesem Browser gespeichert —
+          du wirst also nicht bei jedem Besuch neu gefragt.
         </p>
         <input
           type="password"
